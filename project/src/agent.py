@@ -4,15 +4,15 @@ import boto3
 from strands import Agent
 from strands.models import BedrockModel
 
-from tools.product_tools import get_return_policy, get_product_info, web_search
+from tools.product_tools import generate_launch_timeline, generate_marketing_assets, research_top_launches
 from helpers.utils import get_boto_session, load_aws_config
 
 
-class CustomerSupportAgent:
-    """Customer support agent using AWS Bedrock and Strands framework."""
+class ProductHuntLaunchAgent:
+    """Product Hunt launch assistant using AWS Bedrock and Strands framework."""
 
     def __init__(self, region_name: str = None):
-        """Initialize the customer support agent.
+        """Initialize the Product Hunt launch assistant.
 
         Args:
             region_name: AWS region name. If None, uses .env configuration or default.
@@ -22,35 +22,44 @@ class CustomerSupportAgent:
         self.session = get_boto_session()
         self.region = region_name or default_region
 
-        self.system_prompt = """You are a helpful and professional customer support assistant for an electronics e-commerce company.
+        self.system_prompt = """You are an expert Product Hunt launch assistant specializing in helping entrepreneurs successfully launch their products on Product Hunt.
+
 Your role is to:
-- Provide accurate information using the tools available to you
-- Support the customer with technical information and product specifications, and maintenance questions
-- Be friendly, patient, and understanding with customers
-- Always offer additional help after answering questions
-- If you can't help with something, direct customers to the appropriate contact
+- Guide users through the complete Product Hunt launch process
+- Create comprehensive launch timelines and actionable checklists
+- Generate compelling marketing assets and copy
+- Research competitors and identify strategic opportunities
+- Provide tactical advice based on successful Product Hunt launches
+- Help optimize launch timing, messaging, and outreach strategies
 
-You have access to the following tools:
-1. get_return_policy() - For warranty and return policy questions
-2. get_product_info() - To get information about a specific product
-3. web_search() - To access current technical documentation, or for updated information
+You have access to the following specialized tools:
+1. generate_launch_timeline() - Create detailed launch timelines with tasks, deadlines, and milestones
+2. generate_marketing_assets() - Generate taglines, descriptions, tweets, and marketing content
+3. research_top_launches() - Research successful launches, identify hunters, and provide competitive insights
 
-Always use the appropriate tool to get accurate, up-to-date information rather than making assumptions about electronic products or specifications."""
+Key principles for Product Hunt success:
+- Tuesday-Thursday launches typically perform best
+- Community building 2-3 weeks before launch is crucial
+- Clear, benefit-focused messaging outperforms feature lists
+- Authentic founder stories drive engagement
+- Consistent updates and engagement on launch day maximize visibility
 
-        # Initialize the Bedrock model (Anthropic Claude 3.7 Sonnet)
+Always use the appropriate tools to provide data-driven recommendations and actionable advice tailored to each user's specific product and timeline."""
+
+        # Initialize the Bedrock model (Anthropic Claude 3.5 Haiku)
         self.model = BedrockModel(
-            model_id="us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+            model_id="anthropic.claude-3-5-haiku-20241022-v1:0",
             temperature=0.3,
             region_name=self.region
         )
 
-        # Create the agent with tools
+        # Create the agent with Product Hunt tools
         self.agent = Agent(
             model=self.model,
             tools=[
-                get_product_info,
-                get_return_policy,
-                web_search,
+                generate_launch_timeline,
+                generate_marketing_assets,
+                research_top_launches,
             ],
             system_prompt=self.system_prompt,
         )
@@ -67,29 +76,34 @@ Always use the appropriate tool to get accurate, up-to-date information rather t
         return self.agent(message)
 
     def start_interactive_chat(self):
-        """Start an interactive chat session with the agent."""
-        print("Customer Support Agent initialized! Type 'quit' to exit.\n")
+        """Start an interactive chat session with the Product Hunt assistant."""
+        print("🚀 Product Hunt Launch Assistant ready! Type 'quit' to exit.\n")
+        print("I can help you with:")
+        print("- Creating launch timelines and checklists")
+        print("- Generating marketing assets and copy")
+        print("- Researching competitors and successful launches")
+        print("- Strategic advice for your Product Hunt launch\n")
 
         while True:
             try:
                 user_input = input("You: ")
                 if user_input.lower() in ['quit', 'exit', 'bye']:
-                    print("Thank you for contacting customer support!")
+                    print("🎯 Good luck with your Product Hunt launch! Remember: build community, tell your story, and engage authentically!")
                     break
 
                 response = self.chat(user_input)
-                print(f"Agent: {response}\n")
+                print(f"🤖 Assistant: {response}\n")
 
             except KeyboardInterrupt:
-                print("\nGoodbye!")
+                print("\n🚀 See you on Product Hunt!")
                 break
             except Exception as e:
                 print(f"Error: {e}")
 
 
 def main():
-    """Main function to run the customer support agent."""
-    agent = CustomerSupportAgent()
+    """Main function to run the Product Hunt launch assistant."""
+    agent = ProductHuntLaunchAgent()
     agent.start_interactive_chat()
 
 

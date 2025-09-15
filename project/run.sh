@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# AWS Bedrock Customer Support Agent Runner
+# Product Hunt Launch Assistant Runner
 
-echo "🤖 AWS Bedrock Customer Support Agent"
-echo "===================================="
+echo "🚀 Product Hunt Launch Assistant"
+echo "================================"
 
 # Check if .env file exists
 if [ ! -f ".env" ]; then

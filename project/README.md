@@ -1,20 +1,22 @@
-# AWS Bedrock Customer Support Agent
+# Product Hunt Launch Assistant
 
-A customer support agent built on AWS Bedrock using the Strands Agents framework and Claude 3.7 Sonnet.
+An AI-powered Product Hunt launch assistant built on AWS Bedrock using the Strands Agents framework and Claude 3.5 Haiku.
 
 ## Features
 
-- **Product Information**: Get detailed specs and information about electronics
-- **Return Policy Lookup**: Access return policies for different product categories
-- **Web Search**: Search the web for up-to-date troubleshooting information
-- **Interactive Chat**: Command-line interface for testing and interaction
+- **Launch Timeline Generation**: Create comprehensive launch plans with tasks, deadlines, and milestones
+- **Marketing Asset Creation**: Generate taglines, descriptions, tweets, and promotional content
+- **Competitive Research**: Analyze successful launches and identify strategic opportunities
+- **Hunter Recommendations**: Find and connect with relevant Product Hunt hunters
+- **Strategic Guidance**: Get tactical advice based on proven Product Hunt success patterns
+- **Interactive Chat**: Command-line interface for launch planning and optimization
 
 ## Prerequisites
 
 - AWS account with Bedrock access
 - Python 3.10+
 - AWS CLI configured with proper credentials
-- Anthropic Claude 3.7 Sonnet enabled in Amazon Bedrock
+- Anthropic Claude 3.5 Haiku enabled in Amazon Bedrock
 
 ## Installation
 
@@ -29,7 +31,7 @@ This will:
 - Install all dependencies
 - Test your AWS credentials
 - Verify Bedrock access
-- Confirm Claude 3.7 Sonnet availability
+- Confirm Claude 3.5 Haiku availability
 
 ### Option 2: Manual Setup
 
@@ -40,9 +42,23 @@ pip install -r requirements.txt
 
 2. Your AWS credentials are already configured in `.env`
 
-### Quick Start
+## Usage Options
 
-Run the agent using the convenient script:
+### 🌐 Web Interface (Recommended)
+
+Run the web application:
+```bash
+python run_web.py
+```
+
+Then open your browser to:
+- **Web App**: http://localhost:8000
+- **API Docs**: http://localhost:8000/docs
+- **API Reference**: http://localhost:8000/redoc
+
+### 💬 Command Line
+
+Run the agent in CLI mode:
 ```bash
 ./run.sh
 ```
@@ -65,10 +81,10 @@ python main.py
 ### Programmatic Usage
 
 ```python
-from src.agent import CustomerSupportAgent
+from src.agent import ProductHuntLaunchAgent
 
-agent = CustomerSupportAgent()
-response = agent.chat("What's the return policy for smartphones?")
+agent = ProductHuntLaunchAgent()
+response = agent.chat("Help me create a launch timeline for my SaaS product launching next Tuesday")
 print(response)
 ```
 
@@ -76,45 +92,65 @@ print(response)
 
 ```
 project/
-├── main.py                 # Main entry point
+├── main.py                 # CLI entry point
+├── run_web.py             # Web app entry point
 ├── requirements.txt        # Dependencies
-├── src/
-│   ├── agent.py           # Main agent implementation
-│   ├── tools/             # Tool implementations
+├── api/                   # FastAPI backend
+│   ├── __init__.py
+│   ├── main.py           # FastAPI app
+│   └── models.py         # Pydantic models
+├── src/                   # Core agent code
+│   ├── agent.py          # Product Hunt launch assistant
+│   ├── tools/            # Tool implementations
 │   │   ├── __init__.py
-│   │   └── product_tools.py
-│   └── helpers/           # Utility functions
+│   │   └── product_tools.py  # Product Hunt launch tools
+│   └── helpers/          # Utility functions
 │       ├── __init__.py
 │       └── utils.py
+├── templates/             # HTML templates
+│   └── index.html        # Main web interface
+├── static/               # Static assets
+│   └── app.js           # Frontend JavaScript
 └── README.md
 ```
 
 ## Available Tools
 
-1. **get_return_policy(product_category)** - Returns policy information for product categories
-2. **get_product_info(product_type)** - Provides technical specifications and details
-3. **web_search(keywords)** - Searches the web for current information
+1. **generate_launch_timeline(product_name, product_type, launch_date, additional_notes)** - Creates comprehensive launch timelines with tasks, deadlines, and milestones
+2. **generate_marketing_assets(product_name, elevator_pitch, target_audience, tone)** - Generates taglines, descriptions, tweets, and promotional content
+3. **research_top_launches(product_category, target_audience, budget_range)** - Analyzes successful launches and provides competitive insights
 
 ## Example Queries
 
-- "What's the return policy for my laptop?"
-- "Tell me about smartphone features"
-- "My phone won't charge, what should I do?"
-- "What are the specs for gaming monitors?"
+- "Help me create a launch timeline for my SaaS product launching next Tuesday"
+- "Generate marketing assets for my productivity app targeting remote workers"
+- "Research successful AI tool launches and find relevant hunters"
+- "What's the best day to launch and how should I prepare?"
+- "Create compelling taglines for my design tool"
 
-## Next Steps
+## Product Hunt Success Tips
 
-This is a basic implementation. The bedrock-agentcore-workshop shows how to enhance it with:
+The assistant incorporates proven Product Hunt strategies:
 
-- **Lab 2**: Persistent memory across conversations
-- **Lab 3**: Shared tools via AgentCore Gateway
-- **Lab 4**: Production deployment with AgentCore Runtime
-- **Lab 5**: Web interface with authentication
+- **Optimal Launch Days**: Tuesday-Thursday typically perform best
+- **Community Building**: Start building relationships 2-3 weeks before launch
+- **Clear Messaging**: Benefit-focused taglines outperform feature lists
+- **Authentic Stories**: Founder narratives and behind-the-scenes content drive engagement
+- **Launch Day Engagement**: Consistent updates and responses maximize visibility
+
+## Enhancement Opportunities
+
+Based on the bedrock-agentcore-workshop, this can be enhanced with:
+
+- **Lab 2**: Persistent memory to track launch progress across sessions
+- **Lab 3**: Shared tools via AgentCore Gateway for team collaboration
+- **Lab 4**: Production deployment with AgentCore Runtime and observability
+- **Lab 5**: Web interface for easier access and team sharing
 
 ## Architecture
 
-Currently running as a local prototype. Future labs will migrate to:
-- AgentCore Memory for conversation persistence
-- AgentCore Gateway for shared tool management
+Currently running as a local prototype with specialized Product Hunt tools. Future enhancements could include:
+- AgentCore Memory for launch campaign tracking
+- AgentCore Gateway for team tool sharing
 - AgentCore Runtime for production deployment
-- AgentCore Identity for authentication and authorization
+- Integration with Product Hunt API for real-time data
