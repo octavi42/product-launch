@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Hunt Launch Assistant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #ff6b6b, #ffa500);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .agent-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        
+        .agent-card {
+            border: 2px solid #f0f0f0;
+            border-radius: 15px;
+            padding: 30px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .agent-card:hover {
+            border-color: #667eea;
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.2);
+        }
+        
+        .agent-card.active {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+        
+        .agent-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+        }
+        
+        .agent-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .agent-description {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+        
+        .form-section {
+            display: none;
+            background: #f8f9ff;
+            padding: 30px;
+            border-radius: 15px;
+            margin-top: 30px;
+        }
+        
+        .form-section.active {
+            display: block;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .result-section {
+            margin-top: 30px;
+            padding: 30px;
+            background: #f8f9ff;
+            border-radius: 15px;
+            display: none;
+        }
+        
+        .result-section.active {
+            display: block;
+        }
+        
+        .result-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .result-content {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .error {
+            background: #ffe6e6;
+            color: #d63031;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border-left: 4px solid #d63031;
+        }
+        
+        .success {
+            background: #e6f7e6;
+            color: #00b894;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border-left: 4px solid #00b894;
+        }
+        
+        @media (max-width: 768px) {
+            .agent-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Product Hunt Launch Assistant</h1>
+            <p>AI-powered agents to help you launch successfully on Product Hunt</p>
+        </div>
+        
+        <div class="content">
+            <div class="agent-grid">
+                <div class="agent-card" onclick="selectAgent('planning')">
+                    <div class="agent-icon">📅</div>
+                    <div class="agent-title">Planning Agent</div>
+                    <div class="agent-description">
+                        Generate a comprehensive launch timeline and checklist based on your target launch date. Get actionable tasks with deadlines and priorities.
+                    </div>
+                </div>
+                
+                <div class="agent-card" onclick="selectAgent('asset_prep')">
+                    <div class="agent-icon">✍️</div>
+                    <div class="agent-title">Asset Prep Agent</div>
+                    <div class="agent-description">
+                        Create compelling taglines, descriptions, and social media content. Generate multiple options for A/B testing your messaging.
+                    </div>
+                </div>
+                
+                <div class="agent-card" onclick="selectAgent('research')">
+                    <div class="agent-icon">🔍</div>
+                    <div class="agent-title">Research Agent</div>
+                    <div class="agent-description">
+                        Research top Product Hunt launches in your category and find relevant hunters to help promote your product.
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Planning Form -->
+            <div id="planning-form" class="form-section">
+                <h3>📅 Generate Launch Timeline</h3>
+                <form onsubmit="submitPlanningForm(event)">
+                    <div class="form-group">
+                        <label for="planning-product-name">Product Name</label>
+                        <input type="text" id="planning-product-name" placeholder="e.g., MyAwesomeApp" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="planning-product-type">Product Type</label>
+                        <select id="planning-product-type" required>
+                            <option value="">Select type</option>
+                            <option value="SaaS">SaaS Application</option>
+                            <option value="Mobile App">Mobile App</option>
+                            <option value="Chrome Extension">Chrome Extension</option>
+                            <option value="API">API/Developer Tool</option>
+                            <option value="Hardware">Hardware Product</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="planning-launch-date">Launch Date</label>
+                        <input type="text" id="planning-launch-date" placeholder="e.g., next Tuesday, December 15, 2024" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="planning-notes">Additional Notes (Optional)</label>
+                        <textarea id="planning-notes" placeholder="Any specific requirements or constraints..."></textarea>
+                    </div>
+                    <button type="submit" class="btn">Generate Timeline</button>
+                </form>
+            </div>
+            
+            <!-- Asset Prep Form -->
+            <div id="asset-prep-form" class="form-section">
+                <h3>✍️ Generate Marketing Assets</h3>
+                <form onsubmit="submitAssetPrepForm(event)">
+                    <div class="form-group">
+                        <label for="asset-product-name">Product Name</label>
+                        <input type="text" id="asset-product-name" placeholder="e.g., MyAwesomeApp" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="asset-elevator-pitch">Elevator Pitch</label>
+                        <textarea id="asset-elevator-pitch" placeholder="Describe your product in 1-2 sentences..." required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="asset-target-audience">Target Audience</label>
+                        <input type="text" id="asset-target-audience" placeholder="e.g., Small business owners, Developers, Designers" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="asset-tone">Tone</label>
+                        <select id="asset-tone">
+                            <option value="professional">Professional</option>
+                            <option value="casual">Casual</option>
+                            <option value="playful">Playful</option>
+                            <option value="technical">Technical</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn">Generate Assets</button>
+                </form>
+            </div>
+            
+            <!-- Research Form -->
+            <div id="research-form" class="form-section">
+                <h3>🔍 Research & Hunter Recommendations</h3>
+                <form onsubmit="submitResearchForm(event)">
+                    <div class="form-group">
+                        <label for="research-category">Product Category</label>
+                        <input type="text" id="research-category" placeholder="e.g., Productivity, AI Tools, Design" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="research-audience">Target Audience</label>
+                        <input type="text" id="research-audience" placeholder="e.g., Small business owners, Developers" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="research-budget">Budget Range (Optional)</label>
+                        <select id="research-budget">
+                            <option value="">Select range</option>
+                            <option value="Free">Free</option>
+                            <option value="Under $500">Under $500</option>
+                            <option value="$500-$2000">$500-$2000</option>
+                            <option value="Over $2000">Over $2000</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn">Start Research</button>
+                </form>
+            </div>
+            
+            <!-- Results Section -->
+            <div id="result-section" class="result-section">
+                <div class="result-title">Results</div>
+                <div id="result-content" class="result-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentAgent = null;
+        
+        function selectAgent(agentType) {
+            // Remove active class from all cards and forms
+            document.querySelectorAll('.agent-card').forEach(card => card.classList.remove('active'));
+            document.querySelectorAll('.form-section').forEach(section => section.classList.remove('active'));
+            
+            // Add active class to selected card
+            event.target.closest('.agent-card').classList.add('active');
+            
+            // Show corresponding form
+            document.getElementById(agentType + '-form').classList.add('active');
+            
+            // Hide results
+            document.getElementById('result-section').classList.remove('active');
+            
+            currentAgent = agentType;
+        }
+        
+        async function submitPlanningForm(event) {
+            event.preventDefault();
+            await submitForm('planning', {
+                product_name: document.getElementById('planning-product-name').value,
+                product_type: document.getElementById('planning-product-type').value,
+                launch_date: document.getElementById('planning-launch-date').value,
+                additional_notes: document.getElementById('planning-notes').value
+            });
+        }
+        
+        async function submitAssetPrepForm(event) {
+            event.preventDefault();
+            await submitForm('asset_prep', {
+                product_name: document.getElementById('asset-product-name').value,
+                elevator_pitch: document.getElementById('asset-elevator-pitch').value,
+                target_audience: document.getElementById('asset-target-audience').value,
+                tone: document.getElementById('asset-tone').value
+            });
+        }
+        
+        async function submitResearchForm(event) {
+            event.preventDefault();
+            await submitForm('research', {
+                product_category: document.getElementById('research-category').value,
+                target_audience: document.getElementById('research-audience').value,
+                budget_range: document.getElementById('research-budget').value
+            });
+        }
+        
+        async function submitForm(agentType, data) {
+            const resultSection = document.getElementById('result-section');
+            const resultContent = document.getElementById('result-content');
+            
+            // Show loading
+            resultSection.classList.add('active');
+            resultContent.innerHTML = '<div class="loading">🤖 AI agents are working... Please wait</div>';
+            
+            try {
+                const response = await fetch(`/agents/${agentType}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayResults(agentType, result.data);
+                } else {
+                    resultContent.innerHTML = `<div class="error">❌ Error: ${result.error}</div>`;
+                }
+            } catch (error) {
+                resultContent.innerHTML = `<div class="error">❌ Network error: ${error.message}</div>`;
+            }
+        }
+        
+        function displayResults(agentType, data) {
+            const resultContent = document.getElementById('result-content');
+            let html = '';
+            
+            if (agentType === 'planning') {
+                html = `
+                    <div class="success">✅ Launch timeline generated successfully!</div>
+                    <h4>Launch Date: ${data.launch_date}</h4>
+                    <p><strong>Total Days:</strong> ${data.total_days} days</p>
+                    
+                    <h4>Key Milestones:</h4>
+                    <ul>
+                        ${data.key_milestones.map(milestone => `<li>${milestone}</li>`).join('')}
+                    </ul>
+                    
+                    <h4>Detailed Timeline:</h4>
+                    ${data.timeline.map(phase => `
+                        <div style="margin-bottom: 20px; padding: 15px; background: #f8f9ff; border-radius: 8px;">
+                            <h5 style="color: #667eea; margin-bottom: 10px;">${phase.phase}</h5>
+                            ${phase.tasks.map(task => `
+                                <div style="margin-bottom: 10px; padding: 10px; background: white; border-radius: 5px; border-left: 3px solid #667eea;">
+                                    <strong>${task.name}</strong>
+                                    <br><small>Due: ${task.due_date} | Priority: ${task.priority} | Time: ${task.time_estimate}</small>
+                                    <br><small>Dependencies: ${task.dependencies}</small>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `).join('')}
+                `;
+            } else if (agentType === 'asset_prep') {
+                html = `
+                    <div class="success">✅ Marketing assets generated successfully!</div>
+                    
+                    <h4>Taglines:</h4>
+                    <ul>
+                        ${data.taglines.map(tagline => `<li>${tagline}</li>`).join('')}
+                    </ul>
+                    
+                    <h4>Short Description:</h4>
+                    <p style="background: #f8f9ff; padding: 15px; border-radius: 8px; border-left: 4px solid #667eea;">${data.short_description}</p>
+                    
+                    <h4>Tweets:</h4>
+                    ${data.tweets.map(tweet => `
+                        <div style="margin-bottom: 10px; padding: 15px; background: #f8f9ff; border-radius: 8px; border-left: 4px solid #1da1f2;">
+                            ${tweet}
+                        </div>
+                    `).join('')}
+                    
+                    <h4>Suggestions:</h4>
+                    <ul>
+                        ${data.suggestions.map(suggestion => `<li>${suggestion}</li>`).join('')}
+                    </ul>
+                `;
+            } else if (agentType === 'research') {
+                html = `
+                    <div class="success">✅ Research completed successfully!</div>
+                    
+                    <h4>Top Launches:</h4>
+                    ${data.top_launches.map(launch => `
+                        <div style="margin-bottom: 15px; padding: 15px; background: #f8f9ff; border-radius: 8px;">
+                            <strong>${launch.name}</strong> - ${launch.tagline}
+                            <br><small>Ranking: ${launch.ranking} | Date: ${launch.launch_date}</small>
+                            <br><small>Success factors: ${launch.success_factors.join(', ')}</small>
+                        </div>
+                    `).join('')}
+                    
+                    <h4>Recommended Hunters:</h4>
+                    ${data.recommended_hunters.map(hunter => `
+                        <div style="margin-bottom: 15px; padding: 15px; background: #f8f9ff; border-radius: 8px;">
+                            <strong>${hunter.name}</strong> (${hunter.handle})
+                            <br><small>Specialization: ${hunter.specialization} | Followers: ${hunter.followers}</small>
+                            <br><small>Contact: ${hunter.contact_approach} | Why: ${hunter.why_fit}</small>
+                        </div>
+                    `).join('')}
+                    
+                    <h4>Insights:</h4>
+                    <ul>
+                        ${data.insights.map(insight => `<li>${insight}</li>`).join('')}
+                    </ul>
+                `;
+            }
+            
+            resultContent.innerHTML = html;
+        }
+    </script>
+</body>
+</html>
