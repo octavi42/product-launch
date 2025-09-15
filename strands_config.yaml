@@ -1,0 +1,120 @@
+# Strands Agents Configuration for Product Hunt Launch Assistant
+
+# AWS Bedrock Configuration
+aws:
+  region: us-west-2
+  model_id: us.anthropic.claude-3-7-sonnet-20250219-v1:0
+  temperature: 0.3
+
+# Agent Configuration
+agents:
+  planning_agent:
+    name: "Product Hunt Planning Agent"
+    description: "Generate comprehensive launch timelines and checklists"
+    tools:
+      - generate_launch_timeline
+    instructions: |
+      You are a Product Hunt launch expert specializing in creating detailed timelines and checklists.
+      When given a product name, type, and launch date, generate a comprehensive timeline with:
+      - Specific tasks with deadlines
+      - Priority levels (High/Medium/Low)
+      - Time estimates
+      - Dependencies
+      - Success criteria
+
+      Focus on actionable, specific tasks that founders can execute immediately.
+      Consider industry-specific requirements and best practices.
+
+  asset_prep_agent:
+    name: "Product Hunt Asset Agent"
+    description: "Create compelling marketing assets like taglines, descriptions, and social media content"
+    tools:
+      - generate_marketing_assets
+    instructions: |
+      You are a marketing expert specializing in Product Hunt launch content.
+      Generate multiple options for:
+      - Compelling taglines (3-8 words)
+      - Short descriptions optimized for Product Hunt
+      - Social media tweets with hashtags
+      - A/B testing suggestions
+
+      Ensure all content is engaging, shareable, and optimized for the target audience.
+      Vary the approach (problem-focused, benefit-focused, feature-focused).
+
+  research_agent:
+    name: "Product Hunt Research Agent"
+    description: "Research top Product Hunt launches and find relevant hunters for your domain"
+    tools:
+      - research_top_launches
+      - web_search
+    instructions: |
+      You are a Product Hunt research expert specializing in competitive analysis and hunter identification.
+      Research and analyze:
+      - Top launches in the product category
+      - Success factors and patterns
+      - Recommended hunters with relevant experience
+      - Market insights and positioning strategies
+
+      Provide actionable insights and specific recommendations for launch success.
+      Focus on recent launches and current trends.
+
+# Tool Configuration
+tools:
+  generate_launch_timeline:
+    description: "Generate a comprehensive launch timeline and checklist for Product Hunt launch"
+    parameters:
+      product_name:
+        type: string
+        description: "Name of the product to launch"
+        required: true
+      product_type:
+        type: string
+        description: "Type of product (SaaS, Mobile App, Chrome Extension, etc.)"
+        required: true
+      launch_date:
+        type: string
+        description: "Target launch date (e.g., 'next Tuesday', 'December 15, 2024')"
+        required: true
+      additional_notes:
+        type: string
+        description: "Any additional requirements or constraints"
+        required: false
+        default: ""
+
+  generate_marketing_assets:
+    description: "Generate marketing assets including taglines, descriptions, and social media content"
+    parameters:
+      product_name:
+        type: string
+        description: "Name of the product"
+        required: true
+      elevator_pitch:
+        type: string
+        description: "Brief description of the product's value proposition"
+        required: true
+      target_audience:
+        type: string
+        description: "Primary target audience"
+        required: true
+      tone:
+        type: string
+        description: "Tone for the content (professional, casual, playful, technical)"
+        required: false
+        default: "professional"
+
+  research_top_launches:
+    description: "Research top Product Hunt launches and find relevant hunters for your domain"
+    parameters:
+      product_category:
+        type: string
+        description: "Category of the product (e.g., Productivity, AI Tools, Design)"
+        required: true
+      target_audience:
+        type: string
+        description: "Primary target audience"
+        required: true
+      budget_range:
+        type: string
+        description: "Budget range for hunter outreach (optional)"
+        required: false
+        default: ""

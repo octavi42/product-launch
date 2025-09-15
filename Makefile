@@ -24,6 +24,18 @@ test:
 test-model:
 	python test_model.py
 
+# Test Strands agents
+test-strands:
+	python test_strands_simple.py
+
+# Test model fix
+test-model-fix:
+	python test_model_fix.py
+
+# Test response format fix
+test-response-fix:
+	python test_response_fix.py
+
 # Clean up temporary files
 clean:
 	find . -type f -name "*.pyc" -delete
@@ -33,4 +45,7 @@ clean:
 # Quick setup for hackathon
 setup: install format test
 	@echo "🚀 Product Hunt Launch Assistant is ready!"
+	@echo "Run 'make test-response-fix' to test the API response format"
+	@echo "Run 'make test-model-fix' to test the corrected model"
+	@echo "Run 'make test-strands' to test Strands agents"
 	@echo "Run 'make run' to start the application"

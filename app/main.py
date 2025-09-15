@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.coordinator import AgentCoordinator
+from app.strands_agents import ProductHuntCoordinator
 from app.models import AgentResponse, AssetPrepRequest, PlanningRequest, ResearchRequest
 
 # Initialize FastAPI app
@@ -22,8 +22,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize coordinator
-coordinator = AgentCoordinator()
+# Initialize Strands coordinator
+coordinator = ProductHuntCoordinator()
 
 # Serve static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -61,21 +61,21 @@ async def get_agents():
 async def planning_agent(request: PlanningRequest):
     """Generate launch timeline and checklist"""
     request_data = request.dict()
-    return coordinator.route_request("planning", request_data)
+    return await coordinator.route_request("planning", request_data)
 
 
 @app.post("/agents/asset-prep", response_model=AgentResponse)
 async def asset_prep_agent(request: AssetPrepRequest):
     """Generate marketing assets"""
     request_data = request.dict()
-    return coordinator.route_request("asset_prep", request_data)
+    return await coordinator.route_request("asset_prep", request_data)
 
 
 @app.post("/agents/research", response_model=AgentResponse)
 async def research_agent(request: ResearchRequest):
     """Research top launches and find hunters"""
     request_data = request.dict()
-    return coordinator.route_request("research", request_data)
+    return await coordinator.route_request("research", request_data)
 
 
 @app.get("/health")
