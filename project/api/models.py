@@ -13,12 +13,16 @@ class ProductRequest(BaseModel):
     launch_date: str = ""
     additional_notes: str = ""
     github_repo: Optional[str] = None
+    user_id: Optional[str] = None
+    session_id: Optional[str] = None
 
 
 class ChatRequest(BaseModel):
     """Request model for chat interaction."""
     message: str
     context: Optional[Dict[str, Any]] = None
+    user_id: Optional[str] = None
+    session_id: Optional[str] = None
 
 
 class AgentResponse(BaseModel):
@@ -68,3 +72,23 @@ class GitHubRepoInfo(BaseModel):
     language: str
     topics: List[str] = []
     readme: Optional[str] = None
+
+
+class MemorySummaryResponse(BaseModel):
+    """Response model for memory summary."""
+    success: bool
+    user_id: str
+    session_id: str
+    preferences: List[str] = []
+    semantic_memories: List[str] = []
+    total_memories: int = 0
+    error: Optional[str] = None
+
+
+class UserSessionResponse(BaseModel):
+    """Response model for user session information."""
+    success: bool
+    user_id: str
+    session_id: str
+    memory_enabled: bool
+    error: Optional[str] = None

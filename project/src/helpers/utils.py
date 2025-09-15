@@ -29,6 +29,16 @@ def load_aws_config():
     return aws_region
 
 
+def get_ssm_parameter(name: str) -> str:
+    """Get parameter from AWS Systems Manager Parameter Store."""
+    ssm = boto3.client('ssm')
+    try:
+        response = ssm.get_parameter(Name=name)
+        return response['Parameter']['Value']
+    except ssm.exceptions.ParameterNotFound:
+        raise ValueError(f"Parameter {name} not found")
+
+
 def put_ssm_parameter(name: str, value: str, description: str = ""):
     """Store parameter in AWS Systems Manager Parameter Store."""
     ssm = boto3.client('ssm')

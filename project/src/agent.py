@@ -1,26 +1,37 @@
-"""Basic AWS Bedrock customer support agent implementation."""
+"""Product Hunt Launch Assistant with AgentCore Memory integration."""
 
 import boto3
+import uuid
 from strands import Agent
 from strands.models import BedrockModel
 
 from tools.product_tools import generate_launch_timeline, generate_marketing_assets, research_top_launches
 from helpers.utils import get_boto_session, load_aws_config
+from helpers.memory import get_memory_hooks, seed_product_memory, get_user_memory_summary
 
 
 class ProductHuntLaunchAgent:
-    """Product Hunt launch assistant using AWS Bedrock and Strands framework."""
+    """Product Hunt launch assistant using AWS Bedrock and Strands framework with memory."""
 
-    def __init__(self, region_name: str = None):
+    def __init__(self, region_name: str = None, user_id: str = None, session_id: str = None):
         """Initialize the Product Hunt launch assistant.
 
         Args:
             region_name: AWS region name. If None, uses .env configuration or default.
+            user_id: Unique identifier for the user. If None, generates a random ID.
+            session_id: Session identifier. If None, generates a new session ID.
         """
         # Load AWS configuration from .env
         default_region = load_aws_config()
         self.session = get_boto_session()
         self.region = region_name or default_region
+        
+        # Initialize user and session IDs
+        self.user_id = user_id or f"user_{uuid.uuid4().hex[:8]}"
+        self.session_id = session_id or str(uuid.uuid4())
+        
+        # Initialize memory hooks
+        self.memory_hooks = get_memory_hooks(self.user_id, self.session_id)
 
         self.system_prompt = """You are an expert Product Hunt launch assistant specializing in helping entrepreneurs successfully launch their products on Product Hunt.
 
@@ -53,7 +64,9 @@ Always use the appropriate tools to provide data-driven recommendations and acti
             region_name=self.region
         )
 
-        # Create the agent with Product Hunt tools
+        # Create the agent with Product Hunt tools and memory hooks
+        hooks = [self.memory_hooks] if self.memory_hooks else []
+        
         self.agent = Agent(
             model=self.model,
             tools=[
@@ -62,6 +75,7 @@ Always use the appropriate tools to provide data-driven recommendations and acti
                 research_top_launches,
             ],
             system_prompt=self.system_prompt,
+            hooks=hooks,
         )
 
     def chat(self, message: str) -> str:
@@ -74,6 +88,54 @@ Always use the appropriate tools to provide data-driven recommendations and acti
             Agent's response
         """
         return self.agent(message)
+
+    def seed_product_memory(self, product_data: dict) -> bool:
+        """Seed memory with initial product information.
+        
+        Args:
+            product_data: Dictionary containing product information
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self.memory_hooks:
+            return False
+            
+        return seed_product_memory(
+            memory_id=self.memory_hooks.memory_id,
+            actor_id=self.user_id,
+            product_data=product_data
+        )
+
+    def get_memory_summary(self) -> dict:
+        """Get a summary of user's stored memories.
+        
+        Returns:
+            Dictionary containing memory summary
+        """
+        if not self.memory_hooks:
+            return {"preferences": [], "semantic": [], "total_memories": 0}
+            
+        return get_user_memory_summary(
+            memory_id=self.memory_hooks.memory_id,
+            actor_id=self.user_id
+        )
+
+    def get_user_id(self) -> str:
+        """Get the current user ID.
+        
+        Returns:
+            User ID string
+        """
+        return self.user_id
+
+    def get_session_id(self) -> str:
+        """Get the current session ID.
+        
+        Returns:
+            Session ID string
+        """
+        return self.session_id
 
     def start_interactive_chat(self):
         """Start an interactive chat session with the Product Hunt assistant."""

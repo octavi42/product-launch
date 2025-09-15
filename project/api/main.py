@@ -22,7 +22,9 @@ from api.models import (
     TimelineResponse,
     MarketingAssetsResponse,
     ResearchResponse,
-    GitHubRepoInfo
+    GitHubRepoInfo,
+    MemorySummaryResponse,
+    UserSessionResponse
 )
 from src.agent import ProductHuntLaunchAgent
 
@@ -51,11 +53,11 @@ templates = Jinja2Templates(directory="templates")
 # Initialize the agent (singleton pattern)
 agent = None
 
-def get_agent():
+def get_agent(user_id: str = None, session_id: str = None):
     """Get or create the Product Hunt agent instance."""
     global agent
-    if agent is None:
-        agent = ProductHuntLaunchAgent()
+    if agent is None or (user_id and agent.get_user_id() != user_id):
+        agent = ProductHuntLaunchAgent(user_id=user_id, session_id=session_id)
     return agent
 
 
@@ -75,13 +77,17 @@ async def health_check():
 async def chat_with_agent(request: ChatRequest):
     """General chat endpoint with the Product Hunt assistant."""
     try:
-        agent_instance = get_agent()
+        agent_instance = get_agent(user_id=request.user_id, session_id=request.session_id)
         response = agent_instance.chat(request.message)
 
         return AgentResponse(
             success=True,
             response=response,
-            data={"context": request.context} if request.context else None
+            data={
+                "context": request.context,
+                "user_id": agent_instance.get_user_id(),
+                "session_id": agent_instance.get_session_id()
+            }
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Agent error: {str(e)}")
@@ -91,7 +97,19 @@ async def chat_with_agent(request: ChatRequest):
 async def analyze_product(request: ProductRequest):
     """Analyze a product and provide comprehensive launch guidance."""
     try:
-        agent_instance = get_agent()
+        agent_instance = get_agent(user_id=request.user_id, session_id=request.session_id)
+
+        # Seed memory with product information
+        product_data = {
+            "product_name": request.product_name,
+            "product_type": request.product_type,
+            "product_description": request.product_description,
+            "target_audience": request.target_audience,
+            "launch_date": request.launch_date,
+            "additional_notes": request.additional_notes,
+            "github_repo": request.github_repo
+        }
+        agent_instance.seed_product_memory(product_data)
 
         # Create a comprehensive prompt for the agent
         prompt = f"""I need help launching my product on Product Hunt. Here are the details:
@@ -120,7 +138,9 @@ Focus on actionable, specific recommendations tailored to my product."""
             response=response,
             data={
                 "product_info": request.dict(),
-                "analysis_type": "comprehensive"
+                "analysis_type": "comprehensive",
+                "user_id": agent_instance.get_user_id(),
+                "session_id": agent_instance.get_session_id()
             }
         )
     except Exception as e:
@@ -131,7 +151,7 @@ Focus on actionable, specific recommendations tailored to my product."""
 async def generate_timeline(request: ProductRequest):
     """Generate a launch timeline for the product."""
     try:
-        agent_instance = get_agent()
+        agent_instance = get_agent(user_id=request.user_id, session_id=request.session_id)
 
         # Use the timeline tool directly
         from src.tools.product_tools import generate_launch_timeline
@@ -162,6 +182,7 @@ async def generate_timeline(request: ProductRequest):
 async def generate_marketing_assets(request: ProductRequest):
     """Generate marketing assets for the product."""
     try:
+        agent_instance = get_agent(user_id=request.user_id, session_id=request.session_id)
         from src.tools.product_tools import generate_marketing_assets
 
         result = generate_marketing_assets(
@@ -190,6 +211,7 @@ async def generate_marketing_assets(request: ProductRequest):
 async def research_competition(request: ProductRequest):
     """Research competitive landscape and successful launches."""
     try:
+        agent_instance = get_agent(user_id=request.user_id, session_id=request.session_id)
         from src.tools.product_tools import research_top_launches
 
         result = research_top_launches(
@@ -241,6 +263,94 @@ async def get_github_repo_info(owner: str, repo: str):
         topics=["ai", "product-hunt", "startup"],
         readme="# Mock README\n\nThis will be populated with real data soon!"
     )
+
+
+@app.post("/api/memory/summary", response_model=MemorySummaryResponse)
+async def get_memory_summary(request: ChatRequest):
+    """Get a summary of user's stored memories."""
+    try:
+        agent_instance = get_agent(user_id=request.user_id, session_id=request.session_id)
+        memory_summary = agent_instance.get_memory_summary()
+        
+        return MemorySummaryResponse(
+            success=True,
+            user_id=agent_instance.get_user_id(),
+            session_id=agent_instance.get_session_id(),
+            preferences=memory_summary.get("preferences", []),
+            semantic_memories=memory_summary.get("semantic", []),
+            total_memories=memory_summary.get("total_memories", 0)
+        )
+    except Exception as e:
+        return MemorySummaryResponse(
+            success=False,
+            user_id=request.user_id or "unknown",
+            session_id=request.session_id or "unknown",
+            error=f"Memory summary error: {str(e)}"
+        )
+
+
+@app.post("/api/memory/seed", response_model=AgentResponse)
+async def seed_memory(request: ProductRequest):
+    """Seed memory with product information."""
+    try:
+        agent_instance = get_agent(user_id=request.user_id, session_id=request.session_id)
+        
+        product_data = {
+            "product_name": request.product_name,
+            "product_type": request.product_type,
+            "product_description": request.product_description,
+            "target_audience": request.target_audience,
+            "launch_date": request.launch_date,
+            "additional_notes": request.additional_notes,
+            "github_repo": request.github_repo
+        }
+        
+        success = agent_instance.seed_product_memory(product_data)
+        
+        if success:
+            return AgentResponse(
+                success=True,
+                response="Product information successfully seeded to memory",
+                data={
+                    "user_id": agent_instance.get_user_id(),
+                    "session_id": agent_instance.get_session_id(),
+                    "product_info": product_data
+                }
+            )
+        else:
+            return AgentResponse(
+                success=False,
+                response="Failed to seed product memory",
+                error="Memory seeding failed"
+            )
+    except Exception as e:
+        return AgentResponse(
+            success=False,
+            response="Error seeding memory",
+            error=f"Memory seeding error: {str(e)}"
+        )
+
+
+@app.post("/api/session/create", response_model=UserSessionResponse)
+async def create_user_session():
+    """Create a new user session with memory enabled."""
+    try:
+        agent_instance = get_agent()
+        
+        return UserSessionResponse(
+            success=True,
+            user_id=agent_instance.get_user_id(),
+            session_id=agent_instance.get_session_id(),
+            memory_enabled=agent_instance.memory_hooks is not None
+        )
+    except Exception as e:
+        return UserSessionResponse(
+            success=False,
+            user_id="unknown",
+            session_id="unknown",
+            memory_enabled=False,
+            error=f"Session creation error: {str(e)}"
+        )
 
 
 if __name__ == "__main__":

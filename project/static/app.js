@@ -3,6 +3,16 @@ function appData() {
         loading: false,
         error: null,
         githubConnected: false,
+        userSession: {
+            user_id: null,
+            session_id: null,
+            memory_enabled: false
+        },
+        memorySummary: {
+            preferences: [],
+            semantic_memories: [],
+            total_memories: 0
+        },
         formData: {
             product_name: '',
             product_type: 'SaaS',
@@ -10,13 +20,114 @@ function appData() {
             target_audience: '',
             launch_date: '',
             additional_notes: '',
-            github_repo: ''
+            github_repo: '',
+            user_id: null,
+            session_id: null
         },
         results: {
             analysis: null,
             timeline: null,
             marketing: null,
             research: null
+        },
+
+        async init() {
+            // Initialize user session and memory
+            await this.createUserSession();
+            await this.loadMemorySummary();
+        },
+
+        async createUserSession() {
+            try {
+                const response = await fetch('/api/session/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    this.userSession = {
+                        user_id: data.user_id,
+                        session_id: data.session_id,
+                        memory_enabled: data.memory_enabled
+                    };
+                    this.formData.user_id = data.user_id;
+                    this.formData.session_id = data.session_id;
+                }
+            } catch (err) {
+                console.error('Error creating user session:', err);
+            }
+        },
+
+        async loadMemorySummary() {
+            if (!this.userSession.user_id) return;
+
+            try {
+                const response = await fetch('/api/memory/summary', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        user_id: this.userSession.user_id,
+                        session_id: this.userSession.session_id
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    this.memorySummary = {
+                        preferences: data.preferences || [],
+                        semantic_memories: data.semantic_memories || [],
+                        total_memories: data.total_memories || 0
+                    };
+                }
+            } catch (err) {
+                console.error('Error loading memory summary:', err);
+            }
+        },
+
+        async seedMemory() {
+            if (!this.formData.product_name || !this.formData.product_description) {
+                this.error = 'Please fill in required fields to seed memory';
+                return;
+            }
+
+            this.loading = true;
+            this.error = null;
+
+            try {
+                const response = await fetch('/api/memory/seed', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(this.formData)
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Update session info if provided
+                    if (data.data && data.data.user_id) {
+                        this.userSession.user_id = data.data.user_id;
+                        this.userSession.session_id = data.data.session_id;
+                        this.formData.user_id = data.data.user_id;
+                        this.formData.session_id = data.data.session_id;
+                    }
+                    await this.loadMemorySummary();
+                } else {
+                    this.error = data.error || 'Failed to seed memory';
+                }
+            } catch (err) {
+                this.error = 'Error seeding memory: ' + err.message;
+            } finally {
+                this.loading = false;
+            }
         },
 
         async connectGithub() {
@@ -64,6 +175,9 @@ function appData() {
             this.results.analysis = null;
 
             try {
+                // First seed memory with product information
+                await this.seedMemory();
+
                 const response = await fetch('/api/analyze-product', {
                     method: 'POST',
                     headers: {
@@ -76,6 +190,15 @@ function appData() {
 
                 if (data.success) {
                     this.results.analysis = data.response;
+                    // Update session info if provided
+                    if (data.data && data.data.user_id) {
+                        this.userSession.user_id = data.data.user_id;
+                        this.userSession.session_id = data.data.session_id;
+                        this.formData.user_id = data.data.user_id;
+                        this.formData.session_id = data.data.session_id;
+                    }
+                    // Reload memory summary to show updated context
+                    await this.loadMemorySummary();
                 } else {
                     this.error = data.error || 'Failed to analyze product';
                 }

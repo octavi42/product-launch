@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body class="bg-gray-50 min-h-screen">
-    <div x-data="appData()" class="container mx-auto px-4 py-8">
+    <div x-data="appData()" x-init="init()" class="container mx-auto px-4 py-8">
         <!-- Header -->
         <header class="text-center mb-8">
             <div class="flex items-center justify-center mb-4">
@@ -17,6 +17,15 @@
                 <h1 class="text-4xl font-bold text-gray-800">Product Hunt Launch Assistant</h1>
             </div>
             <p class="text-gray-600 text-lg">AI-powered guidance for your successful Product Hunt launch</p>
+            
+            <!-- Memory Status -->
+            <div x-show="userSession.memory_enabled" class="mt-4 inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-100 text-green-800">
+                <i class="fas fa-brain mr-1"></i>
+                <span>Memory Enabled</span>
+                <span x-show="memorySummary.total_memories > 0" class="ml-2 px-2 py-0.5 bg-green-200 rounded-full text-xs">
+                    <span x-text="memorySummary.total_memories"></span> memories
+                </span>
+            </div>
         </header>
 
         <!-- Main Form -->
@@ -160,6 +169,35 @@
                     </button>
                 </div>
             </form>
+        </div>
+
+        <!-- Memory Summary -->
+        <div x-show="memorySummary.total_memories > 0" class="max-w-4xl mx-auto bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <i class="fas fa-brain mr-2 text-blue-500"></i>Your Product Context
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div x-show="memorySummary.preferences.length > 0">
+                    <h4 class="font-medium text-gray-700 mb-2">Preferences</h4>
+                    <div class="space-y-1">
+                        <template x-for="pref in memorySummary.preferences.slice(0, 3)" :key="pref">
+                            <div class="text-sm text-gray-600 bg-white p-2 rounded border-l-2 border-blue-300">
+                                <span x-text="pref"></span>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+                <div x-show="memorySummary.semantic_memories.length > 0">
+                    <h4 class="font-medium text-gray-700 mb-2">Product Details</h4>
+                    <div class="space-y-1">
+                        <template x-for="memory in memorySummary.semantic_memories.slice(0, 3)" :key="memory">
+                            <div class="text-sm text-gray-600 bg-white p-2 rounded border-l-2 border-green-300">
+                                <span x-text="memory"></span>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Results -->
