@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Hunt Launch Assistant - Chat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .chat-container {
+            height: calc(100vh - 200px);
+        }
+        .messages-container {
+            max-height: calc(100vh - 300px);
+            overflow-y: auto;
+        }
+        .message {
+            animation: fadeIn 0.3s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .typing-indicator {
+            animation: pulse 1.5s infinite;
+        }
+        .streaming-cursor {
+            display: inline-block;
+            width: 2px;
+            height: 1em;
+            background-color: #f97316;
+            animation: blink 1s infinite;
+            margin-left: 2px;
+        }
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+        .message-streaming {
+            position: relative;
+        }
+        .message-streaming::after {
+            content: '';
+            display: inline-block;
+            width: 2px;
+            height: 1em;
+            background-color: #f97316;
+            animation: blink 1s infinite;
+            margin-left: 2px;
+            vertical-align: baseline;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div x-data="chatData()" class="container mx-auto px-4 py-4">
+        <!-- Header -->
+        <header class="bg-white rounded-lg shadow-sm p-4 mb-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <i class="fas fa-rocket text-2xl text-orange-500 mr-3"></i>
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-800">Product Hunt Launch Assistant</h1>
+                        <p class="text-sm text-gray-600" x-text="productInfo.product_name || 'Chat Mode'"></p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <a href="/" class="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors">
+                        <i class="fas fa-home mr-1"></i>New Session
+                    </a>
+                    <div class="flex items-center text-sm text-gray-500">
+                        <div class="w-2 h-2 rounded-full mr-2" :class="connected ? 'bg-green-400' : 'bg-red-400'"></div>
+                        <span x-text="connected ? 'Connected' : 'Disconnected'"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Product Context (if available) -->
+            <div x-show="productInfo.product_name" class="mt-4 p-3 bg-orange-50 rounded-lg border border-orange-200">
+                <div class="flex items-start">
+                    <i class="fas fa-info-circle text-orange-500 mr-2 mt-0.5"></i>
+                    <div class="text-sm">
+                        <p class="font-medium text-orange-800">Context: <span x-text="productInfo.product_type"></span></p>
+                        <p class="text-orange-700 mt-1" x-text="productInfo.product_description"></p>
+                        <p x-show="productInfo.target_audience" class="text-orange-600 mt-1">
+                            Target: <span x-text="productInfo.target_audience"></span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Chat Container -->
+        <div class="bg-white rounded-lg shadow-sm chat-container flex flex-col">
+            <!-- Messages Area -->
+            <div class="flex-1 p-4 messages-container" id="messagesContainer">
+                <!-- Welcome Message -->
+                <div x-show="messages.length === 0" class="text-center py-8">
+                    <div class="max-w-md mx-auto">
+                        <i class="fas fa-comments text-4xl text-gray-300 mb-4"></i>
+                        <h3 class="text-lg font-medium text-gray-600 mb-2">Ready to help with your Product Hunt launch!</h3>
+                        <p class="text-gray-500 text-sm">Ask me about launch strategies, timelines, marketing assets, competitive research, or anything else related to your Product Hunt success.</p>
+
+                        <!-- Quick Action Buttons -->
+                        <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <button @click="sendQuickMessage('Create a launch timeline for my product')"
+                                    class="p-3 text-left border border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors">
+                                <i class="fas fa-clock text-orange-500 mr-2"></i>
+                                <span class="text-sm font-medium">Create Timeline</span>
+                            </button>
+                            <button @click="sendQuickMessage('Generate marketing assets and taglines')"
+                                    class="p-3 text-left border border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors">
+                                <i class="fas fa-bullhorn text-orange-500 mr-2"></i>
+                                <span class="text-sm font-medium">Marketing Assets</span>
+                            </button>
+                            <button @click="sendQuickMessage('Research successful launches in my category')"
+                                    class="p-3 text-left border border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors">
+                                <i class="fas fa-search text-orange-500 mr-2"></i>
+                                <span class="text-sm font-medium">Research Competition</span>
+                            </button>
+                            <button @click="sendQuickMessage('What are the best practices for Product Hunt success?')"
+                                    class="p-3 text-left border border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors">
+                                <i class="fas fa-lightbulb text-orange-500 mr-2"></i>
+                                <span class="text-sm font-medium">Best Practices</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Messages -->
+                <div class="space-y-4">
+                    <template x-for="message in messages" :key="message.id">
+                        <div class="message" :class="message.type === 'user' ? 'flex justify-end' : 'flex justify-start'">
+                            <div class="max-w-3xl" :class="message.type === 'user' ? 'order-2' : 'order-1'">
+                                <div class="flex items-start space-x-3">
+                                    <!-- Avatar -->
+                                    <div x-show="message.type === 'assistant'" class="flex-shrink-0">
+                                        <div class="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                                            <i class="fas fa-robot text-orange-600 text-sm"></i>
+                                        </div>
+                                    </div>
+
+                                    <!-- Message Content -->
+                                    <div class="flex-1">
+                                        <div class="rounded-lg p-4"
+                                             :class="message.type === 'user' ? 'bg-orange-500 text-white' : 'bg-gray-100'">
+                                            <div x-html="formatMessage(message.content)"
+                                                 :class="[
+                                                     message.type === 'user' ? 'text-white' : 'text-gray-800',
+                                                     message.streaming ? 'message-streaming' : ''
+                                                 ]"></div>
+                                        </div>
+                                        <div class="text-xs text-gray-500 mt-1" x-text="message.timestamp"></div>
+                                    </div>
+
+                                    <!-- User Avatar -->
+                                    <div x-show="message.type === 'user'" class="flex-shrink-0">
+                                        <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                            <i class="fas fa-user text-blue-600 text-sm"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+            </div>
+
+            <!-- Input Area -->
+            <div class="border-t border-gray-200 p-4">
+                <form @submit.prevent="sendMessage()" class="flex space-x-3">
+                    <div class="flex-1 relative">
+                        <input
+                            type="text"
+                            x-model="currentMessage"
+                            :disabled="typing"
+                            placeholder="Ask me about your Product Hunt launch strategy..."
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:opacity-50"
+                            x-ref="messageInput"
+                        >
+                    </div>
+                    <button
+                        type="submit"
+                        :disabled="!currentMessage.trim() || typing"
+                        class="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
+                    >
+                        <i class="fas fa-paper-plane mr-2"></i>
+                        Send
+                    </button>
+                </form>
+                <div class="mt-2 text-xs text-gray-500 flex items-center justify-between">
+                    <span>Press Enter to send • Powered by Claude 3.5 Haiku</span>
+                    <span x-text="messages.length + ' messages'"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function chatData() {
+            return {
+                messages: [],
+                currentMessage: '',
+                typing: false,
+                connected: true,
+                productInfo: {},
+                messageId: 1,
+
+                init() {
+                    // Get product info from URL params or localStorage
+                    const urlParams = new URLSearchParams(window.location.search);
+                    if (urlParams.get('product')) {
+                        try {
+                            this.productInfo = JSON.parse(decodeURIComponent(urlParams.get('product')));
+                        } catch (e) {
+                            console.log('No product info in URL');
+                        }
+                    }
+
+                    // Focus on input
+                    this.$refs.messageInput.focus();
+
+                    // Send initial context message if product info exists
+                    if (this.productInfo.product_name) {
+                        setTimeout(() => {
+                            this.sendInitialContext();
+                        }, 500);
+                    }
+                },
+
+                async sendInitialContext() {
+                    const contextMessage = `Hi! I have a ${this.productInfo.product_type} called "${this.productInfo.product_name}" that ${this.productInfo.product_description}. I'd like help with my Product Hunt launch strategy. Can you provide comprehensive guidance?`;
+                    await this.sendMessage(contextMessage);
+                },
+
+                async sendQuickMessage(message) {
+                    this.currentMessage = message;
+                    await this.sendMessage();
+                },
+
+                async sendMessage(customMessage = null) {
+                    // Ensure we get the actual string message, not an event object
+                    let message;
+                    if (typeof customMessage === 'string') {
+                        message = customMessage.trim();
+                    } else {
+                        message = this.currentMessage.trim();
+                    }
+
+                    if (!message) return;
+
+                    console.log('Sending message:', message, 'Type:', typeof message);
+
+                    // Add user message
+                    this.addMessage('user', message);
+                    this.currentMessage = '';
+                    this.typing = true;
+
+                    // Add empty assistant message that we'll stream into
+                    const assistantMessageId = this.messageId;
+                    this.addMessage('assistant', '', true); // true indicates streaming
+
+                    // Scroll to bottom
+                    this.$nextTick(() => {
+                        this.scrollToBottom();
+                    });
+
+                    try {
+                        // Prepare request body
+                        const requestBody = {
+                            message: String(message), // Ensure it's a string
+                            context: {
+                                product_info: this.productInfo || {},
+                                conversation_history: this.messages.slice(-10).map(msg => ({
+                                    type: msg.type,
+                                    content: typeof msg.content === 'string' ? msg.content.substring(0, 500) : String(msg.content).substring(0, 500), // Limit length
+                                    timestamp: msg.timestamp
+                                }))
+                            }
+                        };
+
+                        console.log('Request body:', JSON.stringify(requestBody, null, 2));
+
+                        // Use streaming endpoint
+                        const response = await fetch('/api/chat-stream', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(requestBody)
+                        });
+
+                        if (!response.ok) {
+                            const errorText = await response.text();
+                            console.error('Response error:', response.status, errorText);
+                            throw new Error(`HTTP ${response.status}: ${errorText}`);
+                        }
+
+                        const reader = response.body.getReader();
+                        const decoder = new TextDecoder();
+
+                        while (true) {
+                            const { done, value } = await reader.read();
+
+                            if (done) {
+                                break;
+                            }
+
+                            const chunk = decoder.decode(value);
+                            const lines = chunk.split('\n');
+
+                            for (const line of lines) {
+                                if (line.startsWith('data: ')) {
+                                    try {
+                                        const data = JSON.parse(line.slice(6));
+                                        console.log('Received streaming data:', data);
+
+                                        if (data.type === 'start') {
+                                            console.log('Stream started');
+                                        } else if (data.type === 'token') {
+                                            // Update the assistant message content
+                                            this.updateMessageContent(assistantMessageId, data.accumulated);
+                                            // Auto-scroll as content comes in
+                                            this.scrollToBottom();
+                                        } else if (data.type === 'complete') {
+                                            // Ensure final content is set and stop streaming animation
+                                            this.updateMessageContent(assistantMessageId, data.content);
+                                            this.setMessageStreaming(assistantMessageId, false);
+                                            console.log('Stream completed');
+                                        } else if (data.type === 'error') {
+                                            this.updateMessageContent(assistantMessageId, 'I apologize, but I encountered an error. Please try again.');
+                                            this.setMessageStreaming(assistantMessageId, false);
+                                            console.error('Streaming error:', data.error);
+                                        }
+                                    } catch (e) {
+                                        console.error('Error parsing SSE data:', e, 'Line:', line);
+                                    }
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Chat error:', error);
+                        this.updateMessageContent(assistantMessageId, 'I\'m having trouble connecting right now. Please check your connection and try again.');
+                        this.connected = false;
+                    } finally {
+                        this.typing = false;
+                        // Stop streaming animation if still active
+                        this.setMessageStreaming(assistantMessageId, false);
+                        this.$nextTick(() => {
+                            this.scrollToBottom();
+                            this.$refs.messageInput.focus();
+                        });
+                    }
+                },
+
+                updateMessageContent(messageId, content) {
+                    const message = this.messages.find(msg => msg.id === messageId);
+                    if (message) {
+                        message.content = content;
+                    }
+                },
+
+                setMessageStreaming(messageId, streaming) {
+                    const message = this.messages.find(msg => msg.id === messageId);
+                    if (message) {
+                        message.streaming = streaming;
+                    }
+                },
+
+                addMessage(type, content, streaming = false) {
+                    this.messages.push({
+                        id: this.messageId++,
+                        type: type,
+                        content: content,
+                        streaming: streaming,
+                        timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                    });
+                },
+
+                formatMessage(content) {
+                    if (!content) return '';
+
+                    // Convert markdown-like formatting to HTML
+                    return content
+                        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                        .replace(/`(.*?)`/g, '<code class="bg-gray-200 px-1 rounded">$1</code>')
+                        .replace(/\n- /g, '<br>• ')
+                        .replace(/\n\d+\. /g, '<br>$&')
+                        .replace(/\n\n/g, '<br><br>')
+                        .replace(/\n/g, '<br>');
+                },
+
+                scrollToBottom() {
+                    const container = document.getElementById('messagesContainer');
+                    container.scrollTop = container.scrollHeight;
+                }
+            }
+        }
+    </script>
+</body>
+</html>

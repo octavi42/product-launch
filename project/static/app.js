@@ -207,6 +207,10 @@ function appData() {
             } finally {
                 this.loading = false;
             }
+
+            // Redirect to chat interface with product context
+            const productData = encodeURIComponent(JSON.stringify(this.formData));
+            window.location.href = `/chat?product=${productData}`;
         },
 
         async generateTimeline() {

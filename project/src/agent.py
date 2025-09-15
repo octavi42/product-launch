@@ -61,7 +61,8 @@ Always use the appropriate tools to provide data-driven recommendations and acti
         self.model = BedrockModel(
             model_id="anthropic.claude-3-5-haiku-20241022-v1:0",
             temperature=0.3,
-            region_name=self.region
+            region_name=self.region,
+            stream=True  # Enable streaming from the model
         )
 
         # Create the agent with Product Hunt tools and memory hooks
@@ -136,6 +137,41 @@ Always use the appropriate tools to provide data-driven recommendations and acti
             Session ID string
         """
         return self.session_id
+
+    def chat_stream(self, message: str):
+        """Send a message to the agent and get streaming response.
+
+        Args:
+            message: User's message
+
+        Yields:
+            Streaming response tokens
+        """
+        try:
+            # Use the agent's streaming capability
+            for chunk in self.agent.stream(message):
+                yield chunk
+        except AttributeError:
+            # Fallback if streaming not available - simulate streaming
+            response = self.agent(message)
+
+            # Extract text content from AgentResult
+            response_text = ""
+            if hasattr(response, 'content') and hasattr(response.content, 'text'):
+                response_text = response.content.text
+            elif hasattr(response, 'content'):
+                response_text = str(response.content)
+            elif hasattr(response, 'text'):
+                response_text = response.text
+            elif isinstance(response, str):
+                response_text = response
+            else:
+                response_text = str(response)
+
+            # Simulate streaming by yielding words
+            words = response_text.split(' ')
+            for word in words:
+                yield word + " "
 
     def start_interactive_chat(self):
         """Start an interactive chat session with the Product Hunt assistant."""

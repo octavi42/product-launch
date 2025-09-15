@@ -2,7 +2,13 @@
 
 import sys
 import os
+import logging
+import traceback
 from pathlib import Path
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Add project root to Python path
 project_root = Path(__file__).parent.parent
@@ -12,8 +18,13 @@ sys.path.append(str(project_root / "src"))
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
+from pydantic import ValidationError
+import json
+import asyncio
+import time
 
 from api.models import (
     ProductRequest,
@@ -44,6 +55,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Add custom validation error handler
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    logger.error(f"Validation error for {request.url}: {exc.errors()}")
+    logger.error(f"Request body: {await request.body()}")
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": exc.errors(),
+            "message": "Request validation failed",
+            "url": str(request.url)
+        }
+    )
+
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -56,6 +81,15 @@ agent = None
 def get_agent(user_id: str = None, session_id: str = None):
     """Get or create the Product Hunt agent instance."""
     global agent
+    if agent is None:
+        try:
+            logger.info("Initializing Product Hunt Launch Agent...")
+            agent = ProductHuntLaunchAgent()
+            logger.info("Agent initialized successfully!")
+        except Exception as e:
+            logger.error(f"Failed to initialize agent: {e}")
+            logger.error(traceback.format_exc())
+            raise e
     if agent is None or (user_id and agent.get_user_id() != user_id):
         agent = ProductHuntLaunchAgent(user_id=user_id, session_id=session_id)
     return agent
@@ -65,6 +99,12 @@ def get_agent(user_id: str = None, session_id: str = None):
 async def read_root(request: Request):
     """Serve the main web interface."""
     return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.get("/chat", response_class=HTMLResponse)
+async def chat_interface(request: Request):
+    """Serve the chat interface."""
+    return templates.TemplateResponse("chat.html", {"request": request})
 
 
 @app.get("/health")
@@ -77,8 +117,35 @@ async def health_check():
 async def chat_with_agent(request: ChatRequest):
     """General chat endpoint with the Product Hunt assistant."""
     try:
+        logger.info(f"Chat request: {request.message[:100]}...")
+        agent_instance = get_agent()
         agent_instance = get_agent(user_id=request.user_id, session_id=request.session_id)
         response = agent_instance.chat(request.message)
+        logger.info("Chat response generated successfully")
+
+        # Extract text content from AgentResult if needed
+        logger.info(f"Chat response type: {type(response)}")
+
+        if hasattr(response, 'content') and hasattr(response.content, 'text'):
+            response_text = response.content.text
+        elif hasattr(response, 'content'):
+            response_text = str(response.content)
+        elif hasattr(response, 'text'):
+            response_text = response.text
+        elif isinstance(response, str):
+            response_text = response
+        else:
+            # Try to extract from the string representation
+            response_str = str(response)
+            if 'text=' in response_str:
+                import re
+                match = re.search(r"text='([^']*)'", response_str)
+                if match:
+                    response_text = match.group(1)
+                else:
+                    response_text = response_str
+            else:
+                response_text = response_str
 
         return AgentResponse(
             success=True,
@@ -90,7 +157,138 @@ async def chat_with_agent(request: ChatRequest):
             }
         )
     except Exception as e:
+        logger.error(f"Chat error: {e}")
+        logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Agent error: {str(e)}")
+
+
+@app.post("/api/chat-stream")
+async def chat_with_agent_stream(request: ChatRequest):
+    """Real streaming chat endpoint with the Product Hunt assistant."""
+
+    # Validate message is a string
+    if not isinstance(request.message, str):
+        logger.error(f"Invalid message type: {type(request.message)}, value: {request.message}")
+        raise HTTPException(status_code=400, detail="Message must be a string")
+
+    if not request.message.strip():
+        logger.error("Empty message received")
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+
+    logger.info(f"Received chat stream request: {request.message[:50]}...")
+    logger.info(f"Request context keys: {list(request.context.keys()) if request.context else 'None'}")
+
+    async def generate_response():
+        try:
+            logger.info(f"Streaming chat request: {request.message[:100]}...")
+            agent_instance = get_agent()
+
+            # Send start signal
+            yield f"data: {json.dumps({'type': 'start'})}\n\n"
+
+            accumulated_text = ""
+
+            # Get the full response first (Strands may not support true streaming)
+            response = agent_instance.chat(request.message)
+            logger.info("Chat response generated, starting streaming simulation")
+
+            # Extract text content from AgentResult
+            response_text = ""
+            if hasattr(response, 'content') and hasattr(response.content, 'text'):
+                response_text = response.content.text
+            elif hasattr(response, 'content'):
+                response_text = str(response.content)
+            elif hasattr(response, 'text'):
+                response_text = response.text
+            elif isinstance(response, str):
+                response_text = response
+            else:
+                response_str = str(response)
+                import re
+                patterns = [
+                    r"text='([^']*)'",
+                    r'"text":\s*"([^"]*)"',
+                    r'text=([^,\)]*)'
+                ]
+
+                for pattern in patterns:
+                    match = re.search(pattern, response_str, re.DOTALL)
+                    if match:
+                        response_text = match.group(1)
+                        break
+
+                if not response_text:
+                    response_text = response_str
+
+            logger.info(f"Extracted response text length: {len(response_text)}")
+
+            # Stream character by character for more realistic feel
+            accumulated_text = ""
+            word_buffer = ""
+
+            for i, char in enumerate(response_text):
+                accumulated_text += char
+                word_buffer += char
+
+                # Send chunks on word boundaries or every few characters
+                if char in ' \n\t.,!?;:' or (i > 0 and i % 3 == 0):
+                    if word_buffer.strip():  # Only send if there's actual content
+                        # Send token data
+                        data = {
+                            "type": "token",
+                            "content": word_buffer,
+                            "accumulated": accumulated_text,
+                            "done": False
+                        }
+
+                        yield f"data: {json.dumps(data)}\n\n"
+                        word_buffer = ""
+
+                        # Add delay for realistic streaming feel
+                        await asyncio.sleep(0.02)  # 20ms delay
+
+            # Send any remaining buffer
+            if word_buffer.strip():
+                data = {
+                    "type": "token",
+                    "content": word_buffer,
+                    "accumulated": accumulated_text,
+                    "done": False
+                }
+                yield f"data: {json.dumps(data)}\n\n"
+
+            # Send completion signal
+            completion_data = {
+                "type": "complete",
+                "content": accumulated_text,
+                "done": True
+            }
+            yield f"data: {json.dumps(completion_data)}\n\n"
+
+            logger.info("Streaming response completed")
+
+        except Exception as e:
+            logger.error(f"Streaming chat error: {e}")
+            logger.error(traceback.format_exc())
+
+            error_data = {
+                "type": "error",
+                "error": str(e),
+                "done": True
+            }
+            yield f"data: {json.dumps(error_data)}\n\n"
+
+    return StreamingResponse(
+        generate_response(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST",
+            "Access-Control-Allow-Headers": "Content-Type",
+        }
+    )
 
 
 @app.post("/api/analyze-product", response_model=AgentResponse)
@@ -131,11 +329,37 @@ Please provide a comprehensive analysis and recommendations including:
 
 Focus on actionable, specific recommendations tailored to my product."""
 
+        logger.info("Sending prompt to agent...")
         response = agent_instance.chat(prompt)
+        logger.info("Product analysis completed successfully")
+
+        # Extract text content from AgentResult if needed
+        logger.info(f"Analysis response type: {type(response)}")
+
+        if hasattr(response, 'content') and hasattr(response.content, 'text'):
+            response_text = response.content.text
+        elif hasattr(response, 'content'):
+            response_text = str(response.content)
+        elif hasattr(response, 'text'):
+            response_text = response.text
+        elif isinstance(response, str):
+            response_text = response
+        else:
+            # Try to extract from the string representation
+            response_str = str(response)
+            if 'text=' in response_str:
+                import re
+                match = re.search(r"text='([^']*)'", response_str)
+                if match:
+                    response_text = match.group(1)
+                else:
+                    response_text = response_str
+            else:
+                response_text = response_str
 
         return AgentResponse(
             success=True,
-            response=response,
+            response=response_text,
             data={
                 "product_info": request.dict(),
                 "analysis_type": "comprehensive",
@@ -144,6 +368,8 @@ Focus on actionable, specific recommendations tailored to my product."""
             }
         )
     except Exception as e:
+        logger.error(f"Analysis error: {e}")
+        logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Analysis error: {str(e)}")
 
 

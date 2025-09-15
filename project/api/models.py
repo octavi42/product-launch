@@ -24,6 +24,10 @@ class ChatRequest(BaseModel):
     user_id: Optional[str] = None
     session_id: Optional[str] = None
 
+    class Config:
+        # Allow extra fields to be ignored instead of causing validation errors
+        extra = "ignore"
+
 
 class AgentResponse(BaseModel):
     """Response model for agent interactions."""
