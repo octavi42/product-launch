@@ -35,7 +35,8 @@ from api.models import (
     ResearchResponse,
     GitHubRepoInfo,
     MemorySummaryResponse,
-    UserSessionResponse
+    UserSessionResponse,
+    MemoryRequest
 )
 from src.agent import ProductHuntLaunchAgent
 
@@ -492,7 +493,7 @@ async def get_github_repo_info(owner: str, repo: str):
 
 
 @app.post("/api/memory/summary", response_model=MemorySummaryResponse)
-async def get_memory_summary(request: ChatRequest):
+async def get_memory_summary(request: MemoryRequest):
     """Get a summary of user's stored memories."""
     try:
         agent_instance = get_agent(user_id=request.user_id, session_id=request.session_id)

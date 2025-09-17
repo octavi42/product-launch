@@ -96,3 +96,9 @@ class UserSessionResponse(BaseModel):
     session_id: str
     memory_enabled: bool
     error: Optional[str] = None
+
+
+class MemoryRequest(BaseModel):
+    """Request model for memory operations."""
+    user_id: Optional[str] = None
+    session_id: Optional[str] = None
